@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "build": "tsc -p . && node data_processor.js"
+  },
   "dependencies": {
     "exceljs": "^4.4.0"
   },
