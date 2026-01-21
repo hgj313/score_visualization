@@ -1,0 +1,19 @@
+# Node.js
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS specific
+.DS_Store
+Thumbs.db
+~$*
+
+# Build artifacts
+*.js
+!jest.config.js
+*.map
+
+# Data files
+grade_data.json

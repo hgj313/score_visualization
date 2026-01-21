@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade Analysis Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            color: #7f8c8d;
+        }
+
+        .card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .card.pass .value { color: #27ae60; }
+        .card.fail .value { color: #e74c3c; }
+
+        /* Charts Section */
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        select {
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+
+        /* Scrollable Chart Area */
+        .chart-scroll-container {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 10px; /* Space for scrollbar */
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+            /* Width will be set dynamically for bar chart */
+            width: 100%; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Grade Analysis Dashboard</h1>
+
+        <!-- KPI Section -->
+        <div class="kpi-grid">
+            <div class="card pass">
+                <h3>Qualified (>60)</h3>
+                <div class="value" id="passCount">-</div>
+            </div>
+            <div class="card fail">
+                <h3>Failed (<60)</h3>
+                <div class="value" id="failCount">-</div>
+            </div>
+            <div class="card">
+                <h3>Class Average (Total)</h3>
+                <div class="value" id="avgTotal">-</div>
+            </div>
+        </div>
+
+        <!-- Student Analysis (Radar) -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2>Student Performance vs Average</h2>
+                <select id="studentSelect">
+                    <option value="">Select a Student...</option>
+                </select>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="studentRadarChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Dimension Analysis (Bar) -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2>Class Performance by Dimension</h2>
+                <select id="dimensionSelect">
+                    <option value="single_choice">Single Choice</option>
+                    <option value="multiple_choices">Multiple Choices</option>
+                    <option value="judgment">Judgment</option>
+                    <option value="statement">Statement</option>
+                    <option value="case_review">Case Review</option>
+                    <option value="total">Total Score</option>
+                </select>
+            </div>
+            <div class="chart-scroll-container">
+                <div class="chart-wrapper" id="dimensionChartWrapper">
+                    <canvas id="dimensionBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let globalData = null;
+        let studentChart = null;
+        let dimensionChart = null;
+
+        // Load Data
+        fetch('grade_data.json')
+            .then(response => response.json())
+            .then(data => {
+                globalData = data;
+                initDashboard();
+            })
+            .catch(err => console.error('Error loading data:', err));
+
+        function initDashboard() {
+            // 1. Update KPIs
+            document.getElementById('passCount').textContent = globalData.pass_count;
+            document.getElementById('failCount').textContent = globalData.fail_count;
+            document.getElementById('avgTotal').textContent = globalData.averages.total.toFixed(1);
+
+            // 2. Populate Student Dropdown
+            const studentSelect = document.getElementById('studentSelect');
+            globalData.records.forEach((record, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = record.name;
+                studentSelect.appendChild(option);
+            });
+
+            // 3. Init Charts
+            initStudentChart();
+            initDimensionChart();
+
+            // 4. Add Event Listeners
+            studentSelect.addEventListener('change', updateStudentChart);
+            document.getElementById('dimensionSelect').addEventListener('change', updateDimensionChart);
+            
+            // Initial render
+            if (globalData.records.length > 0) {
+                studentSelect.value = 0;
+                updateStudentChart();
+            }
+            updateDimensionChart();
+        }
+
+        // --- Chart 1: Student Radar ---
+        function initStudentChart() {
+            const ctx = document.getElementById('studentRadarChart').getContext('2d');
+            studentChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Single Choice', 'Multiple Choices', 'Judgment', 'Statement', 'Case Review'],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            suggestedMax: 20 // Adjust based on max possible score per section
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateStudentChart() {
+            const index = document.getElementById('studentSelect').value;
+            if (index === "") return;
+
+            const student = globalData.records[index];
+            const avg = globalData.averages;
+
+            studentChart.data.datasets = [
+                {
+                    label: student.name,
+                    data: [
+                        student.single_choice,
+                        student.mutiple_choices,
+                        student.judgment,
+                        student.statement,
+                        student.case_review
+                    ],
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Class Average',
+                    data: [
+                        avg.single_choice,
+                        avg.multiple_choices,
+                        avg.judgment,
+                        avg.statement,
+                        avg.case_review
+                    ],
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    borderDash: [5, 5]
+                }
+            ];
+            studentChart.update();
+        }
+
+        // --- Chart 2: Dimension Bar ---
+        function initDimensionChart() {
+            const ctx = document.getElementById('dimensionBarChart').getContext('2d');
+            dimensionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        annotation: {
+                            annotations: {}
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDimensionChart() {
+            const dimension = document.getElementById('dimensionSelect').value;
+            const labels = globalData.records.map(r => r.name);
+            const values = globalData.records.map(r => r[dimension]); // Dynamic property access
+            
+            // Dynamic Width Calculation for Scrolling
+            const minWidthPerDataPoint = 40; // Pixels per student
+            const requiredWidth = Math.max(document.querySelector('.chart-scroll-container').clientWidth, labels.length * minWidthPerDataPoint);
+            document.getElementById('dimensionChartWrapper').style.width = `${requiredWidth}px`;
+
+            // Handle key mismatch if any (e.g. "multiple_choices" in stats vs "mutiple_choices" in record)
+            // In data_processor.ts, we used 'mutiple_choices' in Record, but 'multiple_choices' in Average.
+            // Let's normalize lookup.
+            let avgValue = globalData.averages[dimension];
+            
+            // Map select value to record key if they differ
+            let recordKey = dimension;
+            if (dimension === 'multiple_choices') recordKey = 'mutiple_choices'; 
+            
+            const dataValues = globalData.records.map(r => r[recordKey]);
+
+            // Create Average Line Dataset (Line chart overlay on Bar)
+            const avgDataset = Array(dataValues.length).fill(avgValue);
+
+            // Re-render chart to fit new size
+            if (dimensionChart) {
+                dimensionChart.resize(); // Trigger resize for the new container width
+            }
+
+            dimensionChart.data = {
+                labels: labels,
+                datasets: [
+                    {
+                        type: 'line',
+                        label: 'Average (' + avgValue.toFixed(1) + ')',
+                        data: avgDataset,
+                        borderColor: '#FF6384',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        type: 'bar',
+                        label: dimension.replace('_', ' ').toUpperCase(),
+                        data: dataValues,
+                        backgroundColor: dataValues.map(v => v >= avgValue ? '#36A2EB' : '#FFCE56'), // Blue if above avg, Yellow if below
+                        borderWidth: 1
+                    }
+                ]
+            };
+            dimensionChart.update();
+        }
+    </script>
+</body>
+</html>
