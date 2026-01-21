@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grade Analysis Dashboard</title>
+    <title>成绩分析看板</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f5f7fa;
             margin: 0;
             padding: 20px;
@@ -96,20 +96,20 @@
 </head>
 <body>
     <div class="container">
-        <h1>Grade Analysis Dashboard</h1>
+        <h1>成绩分析看板</h1>
 
         <!-- KPI Section -->
         <div class="kpi-grid">
             <div class="card pass">
-                <h3>Qualified (>60)</h3>
+                <h3>合格 (>60)</h3>
                 <div class="value" id="passCount">-</div>
             </div>
             <div class="card fail">
-                <h3>Failed (<60)</h3>
+                <h3>不合格 (<60)</h3>
                 <div class="value" id="failCount">-</div>
             </div>
             <div class="card">
-                <h3>Class Average (Total)</h3>
+                <h3>班级平均分 (总分)</h3>
                 <div class="value" id="avgTotal">-</div>
             </div>
         </div>
@@ -117,9 +117,9 @@
         <!-- Student Analysis (Radar) -->
         <div class="chart-container">
             <div class="chart-header">
-                <h2>Student Performance vs Average</h2>
+                <h2>学生成绩 vs 平均分</h2>
                 <select id="studentSelect">
-                    <option value="">Select a Student...</option>
+                    <option value="">选择学生...</option>
                 </select>
             </div>
             <div class="chart-wrapper">
@@ -130,14 +130,14 @@
         <!-- Dimension Analysis (Bar) -->
         <div class="chart-container">
             <div class="chart-header">
-                <h2>Class Performance by Dimension</h2>
+                <h2>班级单项成绩表现</h2>
                 <select id="dimensionSelect">
-                    <option value="single_choice">Single Choice</option>
-                    <option value="multiple_choices">Multiple Choices</option>
-                    <option value="judgment">Judgment</option>
-                    <option value="statement">Statement</option>
-                    <option value="case_review">Case Review</option>
-                    <option value="total">Total Score</option>
+                    <option value="single_choice">单选题</option>
+                    <option value="multiple_choices">多选题</option>
+                    <option value="judgment">判断题</option>
+                    <option value="statement">陈述题</option>
+                    <option value="case_review">案例分析</option>
+                    <option value="total">总分</option>
                 </select>
             </div>
             <div class="chart-scroll-container">
@@ -199,7 +199,7 @@
             studentChart = new Chart(ctx, {
                 type: 'radar',
                 data: {
-                    labels: ['Single Choice', 'Multiple Choices', 'Judgment', 'Statement', 'Case Review'],
+                    labels: ['单选题', '多选题', '判断题', '陈述题', '案例分析'],
                     datasets: []
                 },
                 options: {
@@ -238,7 +238,7 @@
                     borderWidth: 2
                 },
                 {
-                    label: 'Class Average',
+                    label: '班级平均分',
                     data: [
                         avg.single_choice,
                         avg.multiple_choices,
@@ -282,6 +282,15 @@
             const labels = globalData.records.map(r => r.name);
             const values = globalData.records.map(r => r[dimension]); // Dynamic property access
             
+            const dimensionNames = {
+                'single_choice': '单选题',
+                'multiple_choices': '多选题',
+                'judgment': '判断题',
+                'statement': '陈述题',
+                'case_review': '案例分析',
+                'total': '总分'
+            };
+
             // Dynamic Width Calculation for Scrolling
             const minWidthPerDataPoint = 40; // Pixels per student
             const requiredWidth = Math.max(document.querySelector('.chart-scroll-container').clientWidth, labels.length * minWidthPerDataPoint);
@@ -311,7 +320,7 @@
                 datasets: [
                     {
                         type: 'line',
-                        label: 'Average (' + avgValue.toFixed(1) + ')',
+                        label: '平均分 (' + avgValue.toFixed(1) + ')',
                         data: avgDataset,
                         borderColor: '#FF6384',
                         borderWidth: 2,
@@ -320,7 +329,7 @@
                     },
                     {
                         type: 'bar',
-                        label: dimension.replace('_', ' ').toUpperCase(),
+                        label: dimensionNames[dimension],
                         data: dataValues,
                         backgroundColor: dataValues.map(v => v >= avgValue ? '#36A2EB' : '#FFCE56'), // Blue if above avg, Yellow if below
                         borderWidth: 1
